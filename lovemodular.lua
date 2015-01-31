@@ -18,12 +18,14 @@ do
 	end
 end
 
-local internal = {} -- internal.<callback>.<level>[1]
+local internal = {} -- internal.<callback>.<level>[n]
 
-local function dolevels(__love, modname)
+local function dolevels(internal, __love, modname)
 	local function dolevel(levelname, callbacks)
-		for callback,v in pairs(callbacks) do
-			print("[modular] ".. tostring(modname) .. " register love." .. callback .. "(level=".. levelname..")", v)
+		for callback,f in pairs(callbacks) do
+			if type(f) ~= "function" then
+				error("handler for ... (function expected, got "..type(f)..")", 3)
+			end
 			local q_callback = internal[callback]
 			if not q_callback then
 				q_callback = {}
@@ -34,7 +36,19 @@ local function dolevels(__love, modname)
 				q_level = {}
 				q_callback[levelname] = q_level
 			end
-			q_level[#q_level+1] = v
+			-- check if f is already in this level, do not add twice.
+			local function exists(f)
+				for i, f2 in ipairs(q_level) do
+					if f == f2 then
+						return true
+					end
+				end
+				return false
+			end
+			if not exists(f) then
+				q_level[#q_level+1] = f
+				--print("[modular] ".. tostring(modname) .. " register love." .. callback .. "(level=".. levelname..")", f)
+			end
 		end
 	end
 
@@ -44,7 +58,43 @@ local function dolevels(__love, modname)
 			dolevel(levelname, callbacks)
 		end
 	end
+	local reg = __love.registered
+	if reg and type(reg) == "function" then
+		reg()
+	end
 end
+local function undolevels(internal, __love, modname)
+	local function undolevel(levelname, callbacks)
+		for callback,f in pairs(callbacks) do
+			local q_callback = internal[callback]
+			if not q_callback then
+				return
+			end
+			local q_level = q_callback[levelname]
+			if not q_level then
+				return
+			end
+			for i, f2 in ipairs(q_level) do
+				if f == f2 then
+					table.remove(q_level, i)
+					--print("[modular] ".. tostring(modname) .. " unregister love." .. callback .. "(level=".. levelname..")", f)
+				end
+			end
+		end
+	end
+
+	for i,levelname in ipairs(levelnames) do
+		local callbacks = __love[levelname]
+		if callbacks then
+			undolevel(levelname, callbacks)
+		end
+	end
+	local unreg = __love.unregistered
+	if unreg and type(unreg) == "function" then
+		unreg()
+	end
+end
+
 
 local function checksubfield(__love)
 	local todo = false
@@ -67,12 +117,12 @@ local function register(mod)
 
 	-- module name --
 	local name = mod._NAME and tostring(mod._NAME)
-	if not name then error("WARNING: module._NAME not defined", 2) end
+	--if not name then error("WARNING: module._NAME not defined", 2) end
 	name = name or "?"
 
 	-- check field --
 	if not mod.__love then
-		return false, name..": No callback to bind for this module"
+		return false, name..": No callback to register for this module"
 	end
 
 	-- check sub field --
@@ -80,14 +130,33 @@ local function register(mod)
 	if not todo then
 		return false, name..": Nothing to do, there no pre/default/post field inside __love"
 	end
-
-	dolevels(mod.__love, name)
+	dolevels(internal, mod.__love, name)
 
 	return true, name..": ok"
 end
 
 local function unregister(mod)
-	-- NOT IMPLEMENTED YET
+	if type(mod) ~= "table" then
+		error("bad argument #1 to 'unregister' (table expected, got "..type(mod)..")", 2)
+	end
+
+	-- module name --
+	local name = mod._NAME and tostring(mod._NAME)
+	name = name or "?"
+
+	-- check field --
+	if not mod.__love then
+		return false, name..": No callback to unregister for this module"
+	end
+
+	-- check sub field --
+	local todo = checksubfield(mod.__love)
+	if not todo then
+		return false, name..": Nothing to do, there no pre/default/post field inside __love"
+	end
+	undolevels(internal, mod.__love, name)
+
+	return true, name..": ok"
 end
 
 
@@ -98,7 +167,8 @@ signal_continue = function(...)
 end
 
 -- Some uniq data only provide by this module
-local signal_stop_all = function() end
+local signal_stop_all;
+signal_stop_all = function() return signal_stop_all end
 local signal_stop;
 signal_stop = function(all)
 	if all == "all" then
@@ -106,6 +176,7 @@ signal_stop = function(all)
 	end
 	return signal_stop
 end
+
 local function signal_emit(callback, ...)
 	--print("DEBUG: signal_emit", callback, ...)
 	local q_callback = internal[callback]
@@ -118,16 +189,22 @@ local function signal_emit(callback, ...)
 				for i,f in ipairs(q_callback[q_level]) do
 					local r,s
 					if continuemode then
+						--print("[lovemodular] continuemode in level "..q_level.." of callback "..callback)
 						r,s = f(continue_with())
+						continuemode = false
+						continue_with = nil
 					else
 						r,s = f(...)
 					end
 					if r == signal_stop then
+						--print("[lovemodular] stop level "..q_level.." of callback "..callback)
 						break -- exit only from the current level
 					elseif r == signal_stop_all then
+						--print("[lovemodular] stop all level of callback "..callback.." from level "..q_level)
 						return s
 					elseif r == signal_continue then
 						assert(type(s) == "function", "Invalid usage of signal_continue. Usage: signal_continue(data...)")
+						--print("[lovemodular] signal_continue in level "..q_level.." of callback "..callback)
 						continuemode = true
 						continue_with = s
 					else
@@ -160,8 +237,8 @@ local function validcallback(callback)
 	return false
 end
 
---local registry = {} -- to store previous callbacks (usefull to uninstall/restore)
-local registred = {}
+local beforeinstall = {} -- to store original callbacks (will be restored on uninstall)
+local registred = {} -- remember generated handler to check / do stuff once time
 
 
 local function registerEvent(callback, love)
@@ -169,14 +246,14 @@ local function registerEvent(callback, love)
 		error("Invalid callback "..tostring(callback), 3)
 	end
 	if not registred[callback] then
-		print("[modular] register love."..callback)
+		--print("[modular] register love."..callback)
 		local current = love[callback]
 		local f
 		if current then
-			--registry[callback] = current
+			beforeinstall[callback] = current
 			f = function(...)
-			current(...) --registry[callback](...)
-	                        return signal_emit(callback, ...)
+				current(...)
+				return signal_emit(callback, ...)
 			end
 		else
 			f = function(...)
@@ -186,7 +263,7 @@ local function registerEvent(callback, love)
 		love[callback] = f
 		registred[callback] = f
 	elseif love[callback] ~= registred[callback] then
-		error("WARNING: something overwrite the love."..callback)
+		error("WARNING: something overwrite the love."..callback.." love."..callback.."="..tostring(love[callback]).. " != "..tostring(registred[callback]))
 	end
 end
 
@@ -226,10 +303,12 @@ local _M = {
 	install    = install,
 	uninstall  = uninstall,  -- TODO
 	register   = register,
-	unregister = unregister, -- TODO
+	unregister = unregister, -- to check
 	signal_emit     = assert(signal_emit),
 	signal_stop     = assert(signal_stop),
 	signal_continue = assert(signal_continue),
+
+	all = function() return unpack(all_callbacks) end, -- returns all the callbacks supported.
 }
 
 return _M
