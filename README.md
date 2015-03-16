@@ -136,7 +136,7 @@ On github : https://github.com/tst2005/love-modular
 
 # Sample of use
 
-See https://github.com/tst2005/love-modular-demo
+See files inside the [sample directory](https://github.com/tst2005/love-modular/tree/master/sample/)
 
 # License
 
