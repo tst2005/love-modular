@@ -4,7 +4,7 @@
 LÖVE ask to use functions love.{load,update,draw,...}
 
 Sample :
-```
+```lua
 function love.load()
 	-- code
 end
@@ -32,7 +32,7 @@ It's also allow to enable/disable module dynamically.
 ## Simple use
 
 Sample of module :
-```
+```lua
 local t
 local function load()
 	require("love.graphics")
@@ -67,7 +67,7 @@ return {
 
 
 Sample to stop the defaults keypressed events (but the pre or post keypressed events will still worked)
-```
+```lua
 local lovemodular = require("lovemodular")
 local signal_stop = lovemodular.signal_stop
 
@@ -85,7 +85,7 @@ return {
 ### stop all signals
 
 Sample of way to drop all keypressed events.
-```
+```lua
 local lovemodular = require("lovemodular")
 local signal_stop_all = lovemodular.signal_stop("all")
 
@@ -105,7 +105,7 @@ return {
 
 Sample of interception : replace the f1 by escape
 
-```
+```lua
 local lovemodular = require("lovemodular")
 local signal_continue = lovemodular.signal_continue
 
