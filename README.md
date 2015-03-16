@@ -21,7 +21,7 @@ end
 The problem is it's not easy to setup lot of features inside only one functions.
 Each kind of feature needs to use one or more love callbacks.
 
-# Why using lovemodular ?
+# Why using love modular ?
 
 It's usefull to make module, and be able to re-used them easily.
 It's also allow to enable/disable module dynamically.
@@ -68,8 +68,8 @@ return {
 
 Sample to stop the defaults keypressed events (but the pre or post keypressed events will still worked)
 ```lua
-local lovemodular = require("lovemodular")
-local signal_stop = lovemodular.signal_stop
+local modular = require("modular")
+local signal_stop = modular.signal_stop
 
 return {
 	__love = {
@@ -86,8 +86,8 @@ return {
 
 Sample of way to drop all keypressed events.
 ```lua
-local lovemodular = require("lovemodular")
-local signal_stop_all = lovemodular.signal_stop("all")
+local modular = require("modular")
+local signal_stop_all = modular.signal_stop("all")
 
 return {
 	 __love = {
@@ -106,8 +106,8 @@ return {
 Sample of interception : replace the f1 by escape
 
 ```lua
-local lovemodular = require("lovemodular")
-local signal_continue = lovemodular.signal_continue
+local modular = require("modular")
+local signal_continue = modular.signal_continue
 
 return {
 	__love = {
@@ -126,18 +126,17 @@ Note: the intercepted signal will be propaged to all others level (pre, default 
 
 # Download
 
-On github : https://github.com/tst2005/lovemodular.git
+On github : https://github.com/tst2005/love-modular
 
 # TODO
 
- * Just think about rename lovemodular as love-modular (with lovemodular.lua as modular.lua)
  * More documentation and samples
  * Release it ! Write a thread on the love2d.org forum about it
  * Found a easy way to manage priority
 
 # Sample of use
 
-See https://github.com/tst2005/lovemodular-demo
+See https://github.com/tst2005/love-modular-demo
 
 # License
 
