@@ -128,11 +128,17 @@ Note: the intercepted signal will be propaged to all others level (pre, default 
 
 On github : https://github.com/tst2005/lovemodular.git
 
-# Installation
+# TODO
 
-...
+ * Just think about rename lovemodular as love-modular (with lovemodular.lua as modular.lua)
+ * More documentation and samples
+ * Release it ! Write a thread on the love2d.org forum about it
+ * Found a easy way to manage priority
 
 # Sample of use
 
 See https://github.com/tst2005/lovemodular-demo
 
+# License
+
+ * My code follows the MIT License.
